@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leitor de Conversas WhatsApp</title>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: #f2f3f7;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #333;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  body.dark {
+    background: #1e1e2f;
+    color: #eee;
+  }
+
+  h1 { margin: 10px 0; }
+
+  #topControls {
+    width: 95%;
+    max-width: 1200px;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    align-items: center;
+  }
+
+  #fileInputLabel, #configButton {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-weight: 600;
+    border: 1px solid #ccc;
+    background: #fff;
+    transition: background 0.3s, color 0.3s, border 0.3s;
+  }
+
+  body.dark #fileInputLabel, body.dark #configButton {
+    background: #444;
+    color: #eee;
+    border: 1px solid #666;
+  }
+
+  #configButton {
+    position: relative;
+  }
+
+  #configDropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 36px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    min-width: 150px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 100;
+    flex-direction: column;
+  }
+
+  body.dark #configDropdown {
+    background: #444;
+    border: 1px solid #666;
+    color: #eee;
+  }
+
+  #configDropdown button {
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+    color: inherit;
+  }
+
+  #container {
+    display: flex;
+    width: 95%;
+    max-width: 1200px;
+    height: 75vh;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: background 0.3s;
+  }
+
+  body.dark #container { background: #2b2b3a; }
+
+  #left, #center, #right {
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  #left { flex: 1; border-right: 1px solid #eee; }
+  #center { flex: 2; background: #fafafa; display: flex; flex-direction: column; gap: 6px; transition: background 0.3s; }
+  #right { flex: 1; border-left: 1px solid #eee; display: flex; flex-direction: column; gap: 6px; }
+
+  body.dark #left { border-right: 1px solid #444; }
+  body.dark #right { border-left: 1px solid #444; }
+  body.dark #center { background: #323244; }
+
+  /* Mensagens */
+  .msg {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin: 6px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    line-height: 1.4;
+    display: block;
+    width: 100%;
+    word-wrap: break-word;
+    transition: all 0.2s ease;
+  }
+
+  .author { font-weight: 600; font-size: 0.9rem; margin-bottom: 2px; }
+  .content { margin-top: 2px; font-size: 0.95rem; }
+  .meta { font-size: 0.75rem; color: #777; text-align: right; margin-top: 4px; }
+
+  body.dark .author, body.dark .content { color: #eee; }
+  body.dark .meta { color: #ccc; }
+
+  .highlight { background-color: yellow; color: black; }
+
+  .conversationBtn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #ddd;
+    margin-bottom: 4px;
+    text-align: left;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .conversationBtn.active {
+    background: #2b6cb0;
+    color: white;
+  }
+
+  body.dark .conversationBtn { background: #555; color: #ccc; }
+  body.dark .conversationBtn.active { background: #2b6cb0; color: white; }
+
+</style>
+</head>
+<body>
+<h1>Leitor de Conversas WhatsApp</h1>
+
+<div id="topControls">
+  <label id="fileInputLabel">Incluir Conversa
+    <input type="file" id="fileInput" accept=".txt" multiple style="display:none">
+  </label>
+
+  <div id="configButton">Configuração
+    <div id="configDropdown">
+      <button id="toggleDark">Ativar modo escuro</button>
+    </div>
+  </div>
+</div>
+
+<div id="container">
+  <div id="left">
+    <h3>Resumo</h3>
+    <div id="conversationTitle" style="font-weight:600; margin-bottom:6px;"></div>
+    <div id="stats"></div>
+  </div>
+
+  <div id="center">
+    <div id="conversation">Nenhuma conversa carregada.</div>
+  </div>
+
+  <div id="right">
+    <h3>Galeria</h3>
+    <div id="conversationGallery"></div>
+  </div>
+</div>
+
+<script>
+// Dropdown config
+const configButton = document.getElementById('configButton');
+const configDropdown = document.getElementById('configDropdown');
+configButton.addEventListener('click', () => {
+  configDropdown.style.display = configDropdown.style.display === 'flex' ? 'none' : 'flex';
+});
+
+// Dark mode
+const darkBtn = document.getElementById('toggleDark');
+darkBtn.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  darkBtn.textContent = document.body.classList.contains('dark') ? 'Desativar modo escuro' : 'Ativar modo escuro';
+});
+
+// Regex WhatsApp
+const androidRe = /^(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+[–-]\s+([^:]+):\s*(.*)$/;
+const iosRe = /^\[?(\d{1,2}\/\d{1,2}\/\d{4})[,\s]+(\d{1,2}:\d{2}(?::\d{2})?)\]?\s+([^:]+):\s*(.*)$/;
+
+let conversations = [];
+let currentIndex = 0;
+const participantColors = ['#f3f8ff','#fffaf3','#e0f7fa','#fce4ec','#fff3e0','#ede7f6','#f9fbe7'];
+
+function parseWhatsAppText(text) {
+  const lines = text.split(/\r?\n/);
+  const msgs = [];
+  let current = null;
+
+  for (let line of lines) {
+    let match = line.match(androidRe) || line.match(iosRe);
+    if (match) {
+      if (current) msgs.push(current);
+      current = { date: match[1], time: match[2], author: match[3].trim(), content: match[4].trim() };
+    } else if (line.trim() !== "") {
+      if (current) current.content += "\n" + line.trim();
+    }
+  }
+  if (current) msgs.push(current);
+  return msgs;
+}
+
+function analyzeConversation(conv) {
+  const statsEl = document.getElementById("stats");
+  const titleEl = document.getElementById("conversationTitle");
+  titleEl.textContent = conv.name;
+
+  const msgs = conv.messages;
+  const total = msgs.length;
+  const authors = {};
+  msgs.forEach(m => authors[m.author] = (authors[m.author] || 0) + 1);
+  const authorsStats = Object.entries(authors).map(([a,c])=>`${a}: ${c}`).join("<br>");
+
+  statsEl.innerHTML = `
+    <strong>Total de mensagens:</strong> ${total}<br>
+    <strong>Participantes:</strong><br>${authorsStats}<br>
+  `;
+
+  renderMessages(conv.messages);
+}
+
+function renderMessages(msgs, search='') {
+  const centerPanel = document.getElementById("conversation");
+  centerPanel.innerHTML = "";
+  if (!msgs.length) { centerPanel.textContent = "Nenhuma mensagem encontrada."; return; }
+
+  const participants = [...new Set(msgs.map(m=>m.author))];
+  const colorMap = {};
+  participants.forEach((p,i)=> colorMap[p] = participantColors[i % participantColors.length]);
+
+  msgs.forEach(msg => {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "msg";
+    msgDiv.style.backgroundColor = colorMap[msg.author];
+
+    const author = document.createElement("div");
+    author.className = "author";
+    author.textContent = msg.author;
+
+    const content = document.createElement("div");
+    content.className = "content";
+    content.innerHTML = highlightText(msg.content, search);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `${msg.date} ${msg.time}`;
+
+    // Ajuste de contraste no modo escuro
+    if(document.body.classList.contains('dark')) {
+      author.style.color = "#eee";
+      content.style.color = "#eee";
+      meta.style.color = "#ccc";
+    } else {
+      author.style.color = "#333";
+      content.style.color = "#333";
+      meta.style.color = "#777";
+    }
+
+    msgDiv.appendChild(author);
+    msgDiv.appendChild(content);
+    msgDiv.appendChild(meta);
+    centerPanel.appendChild(msgDiv);
+  });
+
+  centerPanel.scrollTop = centerPanel.scrollHeight;
+}
+
+function highlightText(text, query) {
+  if (!query) return text;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, "gi");
+  return text.replace(regex, '<span class="highlight">$1</span>');
+}
+
+// Carregar arquivos
+document.getElementById("fileInput").addEventListener("change", e => {
+  const files = e.target.files;
+  if (!files.length) return;
+
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function() {
+      const text = reader.result;
+      const msgs = parseWhatsAppText(text);
+      let name = file.name.replace(/\.txt$/i,'');
+      // remove "Conversa de WhatsApp com " se existir
+      name = name.replace(/Conversa de WhatsApp com\s*/i,'');
+      conversations.push({name: name, messages: msgs});
+      renderGallery();
+      if (conversations.length === 1) selectConversation(0);
+    };
+    reader.readAsText(file);
+  });
+});
+
+// Galeria
+function renderGallery() {
+  const gallery = document.getElementById('conversationGallery');
+  gallery.innerHTML = "";
+  conversations.forEach((conv, idx) => {
+    const btn = document.createElement('button');
+    btn.textContent = conv.name;
+    btn.className = "conversationBtn" + (idx === currentIndex ? " active" : "");
+    btn.addEventListener('click', ()=> selectConversation(idx));
+    gallery.appendChild(btn);
+  });
+}
+
+function selectConversation(idx) {
+  currentIndex = idx;
+  document.querySelectorAll('.conversationBtn').forEach((b,i)=> b.classList.toggle('active', i===idx));
+  analyzeConversation(conversations[idx]);
+}
+
+</script>
+</body>
+</html>
