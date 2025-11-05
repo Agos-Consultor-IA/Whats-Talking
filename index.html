@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Leitor de Conversas WhatsApp</title>
+
+<!-- Bibliotecas para leitura de ZIP e RAR -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/unrar-js@0.2.20/dist/unrar.min.js"></script>
+
 <style>
   body {
     font-family: "Segoe UI", sans-serif;
@@ -49,9 +54,7 @@
     border: 1px solid #666;
   }
 
-  #configButton {
-    position: relative;
-  }
+  #configButton { position: relative; }
 
   #configDropdown {
     display: none;
@@ -67,11 +70,7 @@
     flex-direction: column;
   }
 
-  body.dark #configDropdown {
-    background: #444;
-    border: 1px solid #666;
-    color: #eee;
-  }
+  body.dark #configDropdown { background: #444; border: 1px solid #666; color: #eee; }
 
   #configDropdown button {
     padding: 8px 12px;
@@ -97,11 +96,7 @@
 
   body.dark #container { background: #2b2b3a; }
 
-  #left, #center, #right {
-    padding: 16px;
-    overflow-y: auto;
-  }
-
+  #left, #center, #right { padding: 16px; overflow-y: auto; }
   #left { flex: 1; border-right: 1px solid #eee; }
   #center { flex: 2; background: #fafafa; display: flex; flex-direction: column; gap: 6px; transition: background 0.3s; }
   #right { flex: 1; border-left: 1px solid #eee; display: flex; flex-direction: column; gap: 6px; }
@@ -124,12 +119,20 @@
     transition: all 0.2s ease;
   }
 
-  .author { font-weight: 600; font-size: 0.9rem; margin-bottom: 2px; }
-  .content { margin-top: 2px; font-size: 0.95rem; }
-  .meta { font-size: 0.75rem; color: #777; text-align: right; margin-top: 4px; }
+  .author {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+    color: #000; /* texto padrão preto */
+  }
 
-  body.dark .author, body.dark .content { color: #eee; }
-  body.dark .meta { color: #ccc; }
+  .content {
+    margin-top: 2px;
+    font-size: 0.95rem;
+    color: #000; /* texto preto intenso */
+  }
+
+  .meta { font-size: 0.75rem; color: #777; text-align: right; margin-top: 4px; }
 
   .highlight { background-color: yellow; color: black; }
 
@@ -144,14 +147,14 @@
     transition: background 0.2s, color 0.2s;
   }
 
-  .conversationBtn.active {
-    background: #2b6cb0;
-    color: white;
-  }
+  .conversationBtn.active { background: #2b6cb0; color: white; }
 
   body.dark .conversationBtn { background: #555; color: #ccc; }
   body.dark .conversationBtn.active { background: #2b6cb0; color: white; }
 
+  /* --- Ajuste para modo escuro: autor preto sobre fundo colorido --- */
+  body.dark .author { color: #000; font-weight: 800; }
+  body.dark .content { color: #000; }
 </style>
 </head>
 <body>
@@ -159,7 +162,7 @@
 
 <div id="topControls">
   <label id="fileInputLabel">Incluir Conversa
-    <input type="file" id="fileInput" accept=".txt" multiple style="display:none">
+    <input type="file" id="fileInput" accept=".txt,.zip,.rar" multiple style="display:none">
   </label>
 
   <div id="configButton">Configuração
@@ -198,7 +201,9 @@ configButton.addEventListener('click', () => {
 const darkBtn = document.getElementById('toggleDark');
 darkBtn.addEventListener('click', () => {
   document.body.classList.toggle('dark');
-  darkBtn.textContent = document.body.classList.contains('dark') ? 'Desativar modo escuro' : 'Ativar modo escuro';
+  darkBtn.textContent = document.body.classList.contains('dark')
+    ? 'Desativar modo escuro'
+    : 'Ativar modo escuro';
 });
 
 // Regex WhatsApp
@@ -272,17 +277,6 @@ function renderMessages(msgs, search='') {
     meta.className = "meta";
     meta.textContent = `${msg.date} ${msg.time}`;
 
-    // Ajuste de contraste no modo escuro
-    if(document.body.classList.contains('dark')) {
-      author.style.color = "#eee";
-      content.style.color = "#eee";
-      meta.style.color = "#ccc";
-    } else {
-      author.style.color = "#333";
-      content.style.color = "#333";
-      meta.style.color = "#777";
-    }
-
     msgDiv.appendChild(author);
     msgDiv.appendChild(content);
     msgDiv.appendChild(meta);
@@ -298,26 +292,45 @@ function highlightText(text, query) {
   return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
-// Carregar arquivos
-document.getElementById("fileInput").addEventListener("change", e => {
+// Leitura de arquivos
+document.getElementById("fileInput").addEventListener("change", async e => {
   const files = e.target.files;
   if (!files.length) return;
 
-  Array.from(files).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function() {
-      const text = reader.result;
-      const msgs = parseWhatsAppText(text);
-      let name = file.name.replace(/\.txt$/i,'');
-      // remove "Conversa de WhatsApp com " se existir
-      name = name.replace(/Conversa de WhatsApp com\s*/i,'');
-      conversations.push({name: name, messages: msgs});
-      renderGallery();
-      if (conversations.length === 1) selectConversation(0);
-    };
-    reader.readAsText(file);
-  });
+  for (const file of files) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".txt")) {
+      const text = await file.text();
+      processConversation(file.name, text);
+    } else if (name.endsWith(".zip")) {
+      const zip = await JSZip.loadAsync(file);
+      for (const fname in zip.files) {
+        if (fname.endsWith(".txt")) {
+          const text = await zip.files[fname].async("string");
+          processConversation(fname, text);
+        }
+      }
+    } else if (name.endsWith(".rar")) {
+      const buf = await file.arrayBuffer();
+      const extractor = await unrar.createExtractorFromData({ data: buf });
+      const extracted = extractor.extractAll();
+      for (const f of extracted.files) {
+        if (f.fileHeader.name.endsWith(".txt")) {
+          const text = new TextDecoder().decode(f.extraction);
+          processConversation(f.fileHeader.name, text);
+        }
+      }
+    }
+  }
 });
+
+function processConversation(filename, text) {
+  const msgs = parseWhatsAppText(text);
+  let name = filename.replace(/\.(txt|zip|rar)$/i, '').replace(/Conversa de WhatsApp com\s*/i, '');
+  conversations.push({ name, messages: msgs });
+  renderGallery();
+  if (conversations.length === 1) selectConversation(0);
+}
 
 // Galeria
 function renderGallery() {
@@ -337,7 +350,6 @@ function selectConversation(idx) {
   document.querySelectorAll('.conversationBtn').forEach((b,i)=> b.classList.toggle('active', i===idx));
   analyzeConversation(conversations[idx]);
 }
-
 </script>
 </body>
 </html>
