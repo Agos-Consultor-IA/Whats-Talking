@@ -3,186 +3,164 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Leitor de Conversas WhatsApp</title>
+<title>Whats Talking</title>
 
-<!-- Bibliotecas para leitura de ZIP e RAR -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/unrar-js@0.2.20/dist/unrar.min.js"></script>
 
 <style>
-  body {
-    font-family: "Segoe UI", sans-serif;
-    background: #f2f3f7;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #333;
-    transition: background 0.3s, color 0.3s;
-  }
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: #f2f3f7;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+body.dark { background: #1e1e2f; color: #eee; }
 
-  body.dark {
-    background: #1e1e2f;
-    color: #eee;
-  }
+/* Top container com logo e controles */
+#topContainer {
+  width: 95%; max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
 
-  h1 { margin: 10px 0; }
+/* Logo + nome da empresa */
+#logoCompany {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+#companyLogoDisplay { height: 80px; width: auto; object-fit: contain; display: none; }
+#companyNameDisplay { font-weight: 800; font-size: 1.6rem; line-height:80px; }
 
-  #topControls {
-    width: 95%;
-    max-width: 1200px;
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    align-items: center;
-  }
+/* Linha de controles com botões */
+#topControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap:8px;
+}
+#fileInputLabel, #configButton, #toggleTitleBtn {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  border: 1px solid #ccc;
+  transition: background 0.3s, color 0.3s, border 0.3s;
+}
+#fileInputLabel, #configButton { background: #fff; color:#000; }
+#toggleTitleBtn { background: #28a745; color: #fff; font-weight: bold; flex:1; text-align:center; }
+body.dark #fileInputLabel, body.dark #configButton { background:#444; color:#fff; border:1px solid #666; }
+body.dark #toggleTitleBtn { color:#fff; }
 
-  #fileInputLabel, #configButton {
-    cursor: pointer;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-weight: 600;
-    border: 1px solid #ccc;
-    background: #fff;
-    transition: background 0.3s, color 0.3s, border 0.3s;
-  }
+/* Botão personalização */
+#customizeBtn:disabled { cursor:not-allowed; }
 
-  body.dark #fileInputLabel, body.dark #configButton {
-    background: #444;
-    color: #eee;
-    border: 1px solid #666;
-  }
+/* Remove exibição do input dentro do label */
+#fileInput { display:none; }
 
-  #configButton { position: relative; }
+/* Dropdown */
+#configButton { position: relative; }
+#configDropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 36px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  min-width: 150px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  z-index: 100;
+  flex-direction: column;
+}
+body.dark #configDropdown { background:#444; border:1px solid #666; color:#fff; }
+#configDropdown button { padding:8px 12px; border:none; background:none; text-align:left; cursor:pointer; width:100%; color:inherit; }
 
-  #configDropdown {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: 36px;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    min-width: 150px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: 100;
-    flex-direction: column;
-  }
+/* Container principal */
+#container {
+  display: flex;
+  width: 95%;
+  max-width: 1200px;
+  height: 75vh;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  transition: background 0.3s;
+}
+body.dark #container { background:#2b2b3a; }
 
-  body.dark #configDropdown { background: #444; border: 1px solid #666; color: #eee; }
+#left, #center, #right { padding:16px; overflow-y:auto; }
+#left { flex:1; border-right:1px solid #eee; }
+#center { flex:2; background:#fafafa; display:flex; flex-direction:column; gap:6px; transition: background 0.3s; }
+#right { flex:1; border-left:1px solid #eee; display:flex; flex-direction:column; gap:6px; }
 
-  #configDropdown button {
-    padding: 8px 12px;
-    border: none;
-    background: none;
-    text-align: left;
-    cursor: pointer;
-    width: 100%;
-    color: inherit;
-  }
+body.dark #left { border-right:1px solid #444; }
+body.dark #right { border-left:1px solid #444; }
+body.dark #center { background:#323244; }
 
-  #container {
-    display: flex;
-    width: 95%;
-    max-width: 1200px;
-    height: 75vh;
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    transition: background 0.3s;
-  }
+/* Mensagens */
+.msg { max-width:75%; padding:10px 14px; border-radius:12px; margin:6px 0; box-shadow:0 1px 2px rgba(0,0,0,0.05); line-height:1.4; display:block; word-wrap:break-word; transition: all 0.2s ease; }
+.author { font-weight:700; font-size:0.9rem; margin-bottom:2px; color:#000; }
+body.dark .author { color:#000; text-shadow:0 0 2px #fff; }
+.content { margin-top:2px; font-size:0.95rem; color:#000; }
+body.dark .content { color:#000; }
+.meta { font-size:0.75rem; color:#777; text-align:right; margin-top:4px; }
+body.dark .meta { color:#ccc; }
+.highlight { background-color:yellow; color:black; }
 
-  body.dark #container { background: #2b2b3a; }
+.conversationBtn { padding:6px 10px; border-radius:8px; border:none; cursor:pointer; background:#ddd; margin-bottom:4px; text-align:left; transition: background 0.2s, color 0.2s; }
+.conversationBtn.active { background:#2b6cb0; color:white; }
+body.dark .conversationBtn { background:#555; color:#fff; }
+body.dark .conversationBtn.active { background:#2b6cb0; color:white; }
 
-  #left, #center, #right { padding: 16px; overflow-y: auto; }
-  #left { flex: 1; border-right: 1px solid #eee; }
-  #center { flex: 2; background: #fafafa; display: flex; flex-direction: column; gap: 6px; transition: background 0.3s; }
-  #right { flex: 1; border-left: 1px solid #eee; display: flex; flex-direction: column; gap: 6px; }
-
-  body.dark #left { border-right: 1px solid #444; }
-  body.dark #right { border-left: 1px solid #444; }
-  body.dark #center { background: #323244; }
-
-  /* Mensagens */
-  .msg {
-    max-width: 75%;
-    padding: 10px 14px;
-    border-radius: 12px;
-    margin: 6px 0;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    line-height: 1.4;
-    display: block;
-    width: 100%;
-    word-wrap: break-word;
-    transition: all 0.2s ease;
-  }
-
-  .author {
-    font-weight: 700;
-    font-size: 0.9rem;
-    margin-bottom: 2px;
-    color: #000; /* texto padrão preto */
-  }
-
-  .content {
-    margin-top: 2px;
-    font-size: 0.95rem;
-    color: #000; /* texto preto intenso */
-  }
-
-  .meta { font-size: 0.75rem; color: #777; text-align: right; margin-top: 4px; }
-
-  .highlight { background-color: yellow; color: black; }
-
-  .conversationBtn {
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    background: #ddd;
-    margin-bottom: 4px;
-    text-align: left;
-    transition: background 0.2s, color 0.2s;
-  }
-
-  .conversationBtn.active { background: #2b6cb0; color: white; }
-
-  body.dark .conversationBtn { background: #555; color: #ccc; }
-  body.dark .conversationBtn.active { background: #2b6cb0; color: white; }
-
-  /* --- Ajuste para modo escuro: autor preto sobre fundo colorido --- */
-  body.dark .author { color: #000; font-weight: 800; }
-  body.dark .content { color: #000; }
+/* Botão Salvar Conversa */
+#saveConversationBtn { margin-top: 10px; padding:6px 12px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer; font-weight:600; }
 </style>
 </head>
 <body>
-<h1>Leitor de Conversas WhatsApp</h1>
 
-<div id="topControls">
-  <label id="fileInputLabel">Incluir Conversa
-    <input type="file" id="fileInput" accept=".txt,.zip,.rar" multiple style="display:none">
-  </label>
+<div id="topContainer">
+  <div id="logoCompany">
+    <img id="companyLogoDisplay" src="" alt="">
+    <span id="companyNameDisplay"></span>
+  </div>
 
-  <div id="configButton">Configuração
-    <div id="configDropdown">
-      <button id="toggleDark">Ativar modo escuro</button>
+  <div id="topControls">
+    <label id="fileInputLabel">Incluir Conversa
+      <input type="file" id="fileInput" accept=".txt,.zip,.rar" multiple>
+    </label>
+
+    <button id="toggleTitleBtn">Whats Talking</button>
+
+    <div id="configButton">Configuração
+      <div id="configDropdown">
+        <button id="toggleDark">Ativar modo escuro</button>
+        <button id="customizeBtn" disabled>Personalização</button>
+      </div>
     </div>
   </div>
 </div>
 
 <div id="container">
   <div id="left">
-    <h3>Resumo</h3>
+    <h3 id="leftTitle">Resumo</h3>
     <div id="conversationTitle" style="font-weight:600; margin-bottom:6px;"></div>
     <div id="stats"></div>
+    <!-- Botão Salvar Conversa será inserido aqui -->
   </div>
-
   <div id="center">
     <div id="conversation">Nenhuma conversa carregada.</div>
   </div>
-
   <div id="right">
     <h3>Galeria</h3>
     <div id="conversationGallery"></div>
@@ -190,166 +168,220 @@
 </div>
 
 <script>
+// Inicialização persistente
+window.addEventListener('DOMContentLoaded', ()=>{
+  const companyData = JSON.parse(localStorage.getItem('companyData') || '{}');
+  if(companyData.name) document.getElementById('companyNameDisplay').textContent = companyData.name;
+  if(companyData.logo){ 
+    const logoDisplay = document.getElementById('companyLogoDisplay');
+    logoDisplay.src = companyData.logo; 
+    logoDisplay.style.display='block';
+  }
+
+  // Inicializa Personalização como não clicável
+  const customizeBtn = document.getElementById('customizeBtn');
+  customizeBtn.disabled = true;
+  customizeBtn.style.background = '#fff';
+  customizeBtn.style.color = '#999';
+});
+
 // Dropdown config
 const configButton = document.getElementById('configButton');
 const configDropdown = document.getElementById('configDropdown');
-configButton.addEventListener('click', () => {
-  configDropdown.style.display = configDropdown.style.display === 'flex' ? 'none' : 'flex';
-});
+configButton.addEventListener('click', ()=>{ configDropdown.style.display = configDropdown.style.display==='flex'?'none':'flex'; });
 
 // Dark mode
 const darkBtn = document.getElementById('toggleDark');
-darkBtn.addEventListener('click', () => {
+darkBtn.addEventListener('click', ()=>{
   document.body.classList.toggle('dark');
-  darkBtn.textContent = document.body.classList.contains('dark')
-    ? 'Desativar modo escuro'
-    : 'Ativar modo escuro';
+  darkBtn.textContent = document.body.classList.contains('dark')?'Desativar modo escuro':'Ativar modo escuro';
 });
 
-// Regex WhatsApp
+// Toggle título / botão central
+const toggleTitleBtn = document.getElementById('toggleTitleBtn');
+let isWhatsTalking = true;
+toggleTitleBtn.addEventListener('click', ()=>{
+  if(isWhatsTalking){
+    toggleTitleBtn.textContent = "Leitor de Conversas WhatsApp";
+    toggleTitleBtn.style.background = "#007bff";
+  } else {
+    toggleTitleBtn.textContent = "Whats Talking";
+    toggleTitleBtn.style.background = "#28a745";
+  }
+  isWhatsTalking = !isWhatsTalking;
+});
+
+// Personalização
+const customizeBtn = document.getElementById('customizeBtn');
+customizeBtn.addEventListener('click', ()=>{
+  if(customizeBtn.disabled) return;
+  const leftPanel = document.getElementById('left');
+  leftPanel.innerHTML = `
+    <h3 id="leftTitle">Personalização da Empresa</h3>
+    <label>Nome da Empresa:<br><input type="text" id="companyNameInput" style="width:95%;"></label><br><br>
+    <label>Logotipo:<br><input type="file" id="companyLogo" accept="image/*"></label><br><br>
+    <button id="saveCompany">Salvar</button>
+  `;
+  document.getElementById('saveCompany').addEventListener('click', ()=>{
+    const logoFile = document.getElementById('companyLogo').files[0];
+    const companyName = document.getElementById('companyNameInput').value.trim();
+    const logoDisplay = document.getElementById('companyLogoDisplay');
+    const nameDisplay = document.getElementById('companyNameDisplay');
+    nameDisplay.textContent = companyName || '';
+    if(logoFile){
+      const reader = new FileReader();
+      reader.onload = e=>{ 
+        logoDisplay.src = e.target.result; 
+        logoDisplay.style.display='block'; 
+        localStorage.setItem('companyData', JSON.stringify({name:companyName, logo:e.target.result}));
+      };
+      reader.readAsDataURL(logoFile);
+    } else {
+      const existingLogo = logoDisplay.src || '';
+      localStorage.setItem('companyData', JSON.stringify({name:companyName, logo:existingLogo}));
+    }
+    if(conversations.length>0) analyzeConversation(conversations[currentIndex]);
+  });
+});
+
+// Atalho Ctrl + Alt + L para alternar botão Personalização
+document.addEventListener('keydown', (e)=>{
+  if(e.ctrlKey && e.altKey && e.code === 'KeyL'){
+    const leftPanel = document.getElementById('left');
+    if(customizeBtn.disabled){
+      customizeBtn.disabled = false;
+      customizeBtn.style.background = '#fff';
+      customizeBtn.style.color = '#000';
+    } else {
+      customizeBtn.disabled = true;
+      customizeBtn.style.background = '#fff';
+      customizeBtn.style.color = '#999';
+      if(leftPanel.querySelector('#companyNameInput') || leftPanel.querySelector('#companyLogo')){
+        leftPanel.innerHTML = `
+          <h3 id="leftTitle">Resumo</h3>
+          <div id="conversationTitle" style="font-weight:600; margin-bottom:6px;"></div>
+          <div id="stats"></div>
+        `;
+        if(conversations.length > 0) analyzeConversation(conversations[currentIndex]);
+      }
+    }
+  }
+});
+
+// Parsing e renderização das conversas
 const androidRe = /^(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+[–-]\s+([^:]+):\s*(.*)$/;
 const iosRe = /^\[?(\d{1,2}\/\d{1,2}\/\d{4})[,\s]+(\d{1,2}:\d{2}(?::\d{2})?)\]?\s+([^:]+):\s*(.*)$/;
+let conversations=[], currentIndex=0;
+const participantColors=['#f3f8ff','#fffaf3','#e0f7fa','#fce4ec','#fff3e0','#ede7f6','#f9fbe7'];
 
-let conversations = [];
-let currentIndex = 0;
-const participantColors = ['#f3f8ff','#fffaf3','#e0f7fa','#fce4ec','#fff3e0','#ede7f6','#f9fbe7'];
+function parseWhatsAppText(text){const lines=text.split(/\r?\n/); let msgs=[], current=null; for(let line of lines){let match=line.match(androidRe)||line.match(iosRe); if(match){ if(current) msgs.push(current); current={date:match[1], time:match[2], author:match[3].trim(), content:match[4].trim()}; } else if(line.trim()!==""){ if(current) current.content+="\n"+line.trim(); } } if(current) msgs.push(current); return msgs; }
 
-function parseWhatsAppText(text) {
-  const lines = text.split(/\r?\n/);
-  const msgs = [];
-  let current = null;
-
-  for (let line of lines) {
-    let match = line.match(androidRe) || line.match(iosRe);
-    if (match) {
-      if (current) msgs.push(current);
-      current = { date: match[1], time: match[2], author: match[3].trim(), content: match[4].trim() };
-    } else if (line.trim() !== "") {
-      if (current) current.content += "\n" + line.trim();
-    }
-  }
-  if (current) msgs.push(current);
-  return msgs;
-}
-
-function analyzeConversation(conv) {
-  const statsEl = document.getElementById("stats");
-  const titleEl = document.getElementById("conversationTitle");
-  titleEl.textContent = conv.name;
-
-  const msgs = conv.messages;
-  const total = msgs.length;
-  const authors = {};
-  msgs.forEach(m => authors[m.author] = (authors[m.author] || 0) + 1);
-  const authorsStats = Object.entries(authors).map(([a,c])=>`${a}: ${c}`).join("<br>");
-
-  statsEl.innerHTML = `
-    <strong>Total de mensagens:</strong> ${total}<br>
-    <strong>Participantes:</strong><br>${authorsStats}<br>
+function analyzeConversation(conv){
+  const leftPanel=document.getElementById('left');
+  leftPanel.innerHTML=`
+    <h3 id="leftTitle">Resumo</h3>
+    <div id="conversationTitle" style="font-weight:600; margin-bottom:6px;"></div>
+    <div id="stats"></div>
   `;
+  document.getElementById('conversationTitle').textContent = conv.name;
 
-  renderMessages(conv.messages);
+  const msgs=conv.messages;
+  const total=msgs.length;
+  const authors={};
+  msgs.forEach(m=>authors[m.author]=(authors[m.author]||0)+1);
+  const authorsStats = Object.entries(authors).map(([a,c])=>`${a}: ${c}`).join("<br>");
+  document.getElementById('stats').innerHTML = `<strong>Total de mensagens:</strong> ${total}<br><strong>Participantes:</strong><br>${authorsStats}<br>`;
+
+  // Adicionar botão Salvar Conversa
+  if(!document.getElementById('saveConversationBtn')){
+    const saveBtn = document.createElement('button');
+    saveBtn.id = 'saveConversationBtn';
+    saveBtn.textContent = 'Salvar Conversa';
+    saveBtn.addEventListener('click', saveConversation);
+    leftPanel.appendChild(saveBtn);
+  }
+
+  renderMessages(msgs);
 }
 
-function renderMessages(msgs, search='') {
-  const centerPanel = document.getElementById("conversation");
-  centerPanel.innerHTML = "";
-  if (!msgs.length) { centerPanel.textContent = "Nenhuma mensagem encontrada."; return; }
-
-  const participants = [...new Set(msgs.map(m=>m.author))];
-  const colorMap = {};
-  participants.forEach((p,i)=> colorMap[p] = participantColors[i % participantColors.length]);
-
-  msgs.forEach(msg => {
-    const msgDiv = document.createElement("div");
-    msgDiv.className = "msg";
-    msgDiv.style.backgroundColor = colorMap[msg.author];
-
-    const author = document.createElement("div");
-    author.className = "author";
-    author.textContent = msg.author;
-
-    const content = document.createElement("div");
-    content.className = "content";
-    content.innerHTML = highlightText(msg.content, search);
-
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = `${msg.date} ${msg.time}`;
-
-    msgDiv.appendChild(author);
-    msgDiv.appendChild(content);
-    msgDiv.appendChild(meta);
+function renderMessages(msgs, search=''){
+  const centerPanel=document.getElementById("conversation"); centerPanel.innerHTML="";
+  if(!msgs.length){ centerPanel.textContent="Nenhuma mensagem encontrada."; return; }
+  const participants=[...new Set(msgs.map(m=>m.author))];
+  const colorMap={}; participants.forEach((p,i)=> colorMap[p]=participantColors[i % participantColors.length]);
+  msgs.forEach(msg=>{
+    const msgDiv=document.createElement("div"); msgDiv.className="msg"; msgDiv.style.backgroundColor=colorMap[msg.author];
+    const author=document.createElement("div"); author.className="author"; author.textContent=msg.author;
+    const content=document.createElement("div"); content.className="content"; content.innerHTML=highlightText(msg.content,search);
+    const meta=document.createElement("div"); meta.className="meta"; meta.textContent=`${msg.date} ${msg.time}`;
+    msgDiv.appendChild(author); msgDiv.appendChild(content); msgDiv.appendChild(meta);
     centerPanel.appendChild(msgDiv);
   });
-
-  centerPanel.scrollTop = centerPanel.scrollHeight;
+  centerPanel.scrollTop=centerPanel.scrollHeight;
 }
 
-function highlightText(text, query) {
-  if (!query) return text;
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, "gi");
-  return text.replace(regex, '<span class="highlight">$1</span>');
-}
+function highlightText(text,query){if(!query)return text; const regex=new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,"gi"); return text.replace(regex,'<span class="highlight">$1</span>'); }
 
-// Leitura de arquivos
-document.getElementById("fileInput").addEventListener("change", async e => {
-  const files = e.target.files;
-  if (!files.length) return;
-
-  for (const file of files) {
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".txt")) {
-      const text = await file.text();
-      processConversation(file.name, text);
-    } else if (name.endsWith(".zip")) {
-      const zip = await JSZip.loadAsync(file);
-      for (const fname in zip.files) {
-        if (fname.endsWith(".txt")) {
-          const text = await zip.files[fname].async("string");
-          processConversation(fname, text);
-        }
-      }
-    } else if (name.endsWith(".rar")) {
-      const buf = await file.arrayBuffer();
-      const extractor = await unrar.createExtractorFromData({ data: buf });
-      const extracted = extractor.extractAll();
-      for (const f of extracted.files) {
-        if (f.fileHeader.name.endsWith(".txt")) {
-          const text = new TextDecoder().decode(f.extraction);
-          processConversation(f.fileHeader.name, text);
-        }
-      }
-    }
+document.getElementById("fileInput").addEventListener("change", async e=>{
+  const files=e.target.files; if(!files.length) return;
+  for(const file of files){
+    const name=file.name.toLowerCase();
+    if(name.endsWith(".txt")){ const text=await file.text(); processConversation(file.name,text); }
+    else if(name.endsWith(".zip")){ const zip=await JSZip.loadAsync(file); for(const fname in zip.files){ if(fname.endsWith(".txt")){ const text=await zip.files[fname].async("string"); processConversation(fname,text); } } }
+    else if(name.endsWith(".rar")){ const buf=await file.arrayBuffer(); const extractor=await unrar.createExtractorFromData({data:buf}); const extracted=extractor.extractAll(); for(const f of extracted.files){ if(f.fileHeader.name.endsWith(".txt")){ const text=new TextDecoder().decode(f.extraction); processConversation(f.fileHeader.name,text); } } }
   }
 });
 
-function processConversation(filename, text) {
-  const msgs = parseWhatsAppText(text);
-  let name = filename.replace(/\.(txt|zip|rar)$/i, '').replace(/Conversa de WhatsApp com\s*/i, '');
-  conversations.push({ name, messages: msgs });
+function processConversation(filename,text){
+  const msgs=parseWhatsAppText(text);
+  let name=filename.replace(/\.(txt|zip|rar)$/i,'').replace(/Conversa de WhatsApp com\s*/i,'');
+  conversations.push({name,messages:msgs});
   renderGallery();
-  if (conversations.length === 1) selectConversation(0);
+  selectConversation(conversations.length-1);
 }
 
-// Galeria
-function renderGallery() {
-  const gallery = document.getElementById('conversationGallery');
-  gallery.innerHTML = "";
-  conversations.forEach((conv, idx) => {
-    const btn = document.createElement('button');
-    btn.textContent = conv.name;
-    btn.className = "conversationBtn" + (idx === currentIndex ? " active" : "");
-    btn.addEventListener('click', ()=> selectConversation(idx));
-    gallery.appendChild(btn);
+function renderGallery(){
+  const gallery=document.getElementById('conversationGallery'); gallery.innerHTML="";
+  conversations.forEach((conv,idx)=>{
+    const btn=document.createElement('button'); btn.textContent=conv.name; btn.className="conversationBtn"+(idx===currentIndex?" active":"");
+    btn.addEventListener('click',()=>selectConversation(idx)); gallery.appendChild(btn);
   });
 }
 
-function selectConversation(idx) {
-  currentIndex = idx;
-  document.querySelectorAll('.conversationBtn').forEach((b,i)=> b.classList.toggle('active', i===idx));
+function selectConversation(idx){
+  currentIndex=idx;
+  document.querySelectorAll('.conversationBtn').forEach((b,i)=>b.classList.toggle('active',i===idx));
   analyzeConversation(conversations[idx]);
 }
+
+// Função para salvar conversa
+async function saveConversation(){
+  const conv = conversations[currentIndex];
+  if(!conv) return;
+  const blob = new Blob([conv.messages.map(m=>`${m.date} ${m.time} - ${m.author}: ${m.content}`).join('\n')], {type:'text/plain'});
+  
+  // Usando a API File System Access para permitir escolher a pasta
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: conv.name+'.txt',
+        types:[{description:'Arquivo de Texto', accept:{'text/plain':['.txt']}}]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      alert('Conversa salva com sucesso!');
+    } catch(err){ console.error(err); }
+  } else {
+    // fallback tradicional
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = conv.name+'.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+}
 </script>
+
 </body>
 </html>
